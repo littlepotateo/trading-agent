@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradingAgents</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #14171f; --muted: #667085; --line: #e4e7ec;
+    --accent: #14815e; --accent-ink: #ffffff; --soft: #eef6f2;
+    --buy: #14815e; --over: #5b9a3c; --hold: #b7791f; --under: #c2552b; --sell: #b42318; --review: #667085;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1218; --panel: #171b23; --ink: #e8ebf0; --muted: #98a2b3; --line: #2a303b; --soft: #13241e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 18px; margin: 0; }
+  header .tag { color: var(--muted); font-size: 13px; }
+  .spacer { flex: 1; }
+  .api { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .api input { width: 220px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #98a2b3; display: inline-block; }
+  .dot.ok { background: var(--buy); } .dot.bad { background: var(--sell); }
+  main { display: grid; grid-template-columns: 360px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input, select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--ink); font: inherit; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .chips { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .chip { position: relative; }
+  .chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .chip span { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; cursor: pointer; background: var(--bg); }
+  .chip span b { display: block; font-weight: 600; font-size: 14px; }
+  .chip span small { color: var(--muted); font-size: 12px; }
+  .chip input:checked + span { border-color: var(--accent); background: var(--soft); box-shadow: inset 0 0 0 1px var(--accent); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .warn { font-size: 13px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px; margin-top: 12px; }
+  @media (prefers-color-scheme: dark) { .warn { background: #2a1c10; color: #fdba74; border-color: #7c2d12; } }
+  button.primary { width: 100%; margin-top: 18px; padding: 12px; border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 15px; font-family: inherit; cursor: pointer; }
+  button.primary:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 9px; padding: 6px 10px; cursor: pointer; font: inherit; font-size: 13px; }
+  .err { color: var(--sell); font-size: 13px; margin-top: 10px; min-height: 1em; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 20px; }
+  .empty .big { font-size: 40px; margin-bottom: 8px; }
+  .decision { display: flex; align-items: center; gap: 16px; padding: 18px; }
+  .rating { font-size: 26px; font-weight: 700; padding: 10px 18px; border-radius: 12px; color: #fff; min-width: 170px; text-align: center; background: var(--review); }
+  .rating.Buy { background: var(--buy); } .rating.Overweight { background: var(--over); }
+  .rating.Hold { background: var(--hold); } .rating.Underweight { background: var(--under); }
+  .rating.Sell { background: var(--sell); }
+  .meta { color: var(--muted); font-size: 13px; }
+  .steps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .step { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; color: var(--muted); }
+  .step.done { color: var(--buy); border-color: var(--buy); background: var(--soft); }
+  .step.live { color: var(--ink); border-color: var(--accent); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .55; } }
+  .feed { margin-top: 14px; max-height: 150px; overflow: auto; font: 12.5px/1.6 ui-monospace, Menlo, monospace; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+  .feed .error { color: var(--sell); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
+  .tab { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+  .tab.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; }
+  .report { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .report h4 { margin: 0 0 8px; font-size: 14px; }
+  .report .body { font-size: 14px; }
+  .report .body h1, .report .body h2, .report .body h3 { font-size: 15px; margin: 12px 0 6px; }
+  .report .body p { margin: 6px 0; } .report .body ul { padding-left: 20px; margin: 6px 0; }
+  .report .body code { font-size: 12.5px; background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+  .history { display: flex; flex-direction: column; gap: 6px; }
+  .hitem { display: flex; justify-content: space-between; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; cursor: pointer; background: var(--bg); font-size: 13px; }
+  .hitem:hover { border-color: var(--accent); }
+  .disclaimer { color: var(--muted); font-size: 12px; margin-top: 24px; text-align: center; }
+  .stack { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>TradingAgents</h1>
+    <div class="tag">Multi-agent research: analysts, debate, trader, risk, portfolio manager</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="api">
+    <span class="dot" id="apiDot"></span>
+    <input id="apiBase" aria-label="API address" title="Address of the TradingAgents server">
+    <button class="ghost" id="apiSave">Connect</button>
+  </div>
+</header>
+
+<main>
+  <aside class="stack">
+    <form class="card" id="form" autocomplete="off">
+      <h2>1 · What to analyse</h2>
+      <div class="row">
+        <div>
+          <label for="ticker">Ticker</label>
+          <input id="ticker" value="NVDA" required maxlength="20" placeholder="NVDA, 0700.HK, BTC-USD">
+        </div>
+        <div>
+          <label for="date">Analysis date</label>
+          <input id="date" type="date" required>
+        </div>
+      </div>
+      <div class="hint">Works with any Yahoo Finance ticker, e.g. AAPL, 7203.T, AZN.L, 600519.SS.</div>
+
+      <h2 style="margin-top:18px">2 · Analysts</h2>
+      <div class="chips" id="analysts"></div>
+
+      <h2 style="margin-top:18px">3 · Models</h2>
+      <label for="provider">LLM provider</label>
+      <select id="provider"></select>
+      <div class="row">
+        <div>
+          <label for="quick">Quick model</label>
+          <input id="quick" list="models" placeholder="for analysts &amp; debaters">
+        </div>
+        <div>
+          <label for="deep">Deep model</label>
+          <input id="deep" list="models" placeholder="for research &amp; portfolio managers">
+        </div>
+      </div>
+      <datalist id="models"></datalist>
+      <div class="hint" id="keyHint"></div>
+
+      <h2 style="margin-top:18px">4 · Depth</h2>
+      <div class="row">
+        <div>
+          <label for="debate">Research debate rounds</label>
+          <input id="debate" type="number" min="1" max="5" value="1">
+        </div>
+        <div>
+          <label for="risk">Risk debate rounds</label>
+          <input id="risk" type="number" min="1" max="5" value="1">
+        </div>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;color:var(--ink)">
+        <input type="checkbox" id="save" checked style="width:auto"> Save reports to disk
+      </label>
+
+      <button class="primary" id="go" type="submit">Run analysis</button>
+      <div class="err" id="formErr"></div>
+      <div class="warn" id="offline" hidden>
+        Can't reach the TradingAgents server at <span id="offlineAt"></span>. Start it in the
+        repository with <code>python -m web.server</code>, then press Connect.
+      </div>
+    </form>
+
+    <section class="card">
+      <h2>Recent runs</h2>
+      <div class="history" id="history"><div class="meta">No runs yet.</div></div>
+    </section>
+  </aside>
+
+  <section class="stack" id="results">
+    <div class="card empty" id="empty">
+      <div class="big">📈</div>
+      <div><strong>Pick a ticker and date, then run the analysis.</strong></div>
+      <div class="meta" style="margin-top:6px">Each run takes several minutes and makes many LLM calls, so it costs money on paid providers.</div>
+    </div>
+    <div id="runView" hidden></div>
+  </section>
+</main>
+<div class="disclaimer">Research tool only. Not financial advice.</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const LS_API = "ta.apiBase";
+  const DEFAULT_API = "http://127.0.0.1:8765";
+  const sameOrigin = location.protocol.startsWith("http") && ["127.0.0.1", "localhost"].includes(location.hostname);
+  let api = localStorage.getItem(LS_API) || (sameOrigin ? location.origin : DEFAULT_API);
+  let config = null;
+  let activeRun = null;
+  let pollTimer = null;
+  let selectedRunId = null;
+
+  const STEPS = [
+    ["Analysts", ["finished"]],
+    ["Research debate", ["Research manager"]],
+    ["Trader", ["Trader"]],
+    ["Risk debate", []],
+    ["Portfolio manager", ["Portfolio manager"]],
+  ];
+
+  // ---------- helpers ----------
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // Small, safe markdown renderer: escape first, then format.
+  function md(text) {
+    const lines = esc(text).split("\n");
+    let out = "", inList = false;
+    const inline = (s) => s
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    for (const raw of lines) {
+      const line = raw.trimEnd();
+      const li = line.match(/^\s*[-*]\s+(.*)$/);
+      const h = line.match(/^(#{1,4})\s+(.*)$/);
+      if (li) { if (!inList) { out += "<ul>"; inList = true; } out += `<li>${inline(li[1])}</li>`; continue; }
+      if (inList) { out += "</ul>"; inList = false; }
+      if (h) out += `<h${Math.min(h[1].length + 1, 4)}>${inline(h[2])}</h${Math.min(h[1].length + 1, 4)}>`;
+      else if (line.trim() === "") out += "";
+      else out += `<p>${inline(line)}</p>`;
+    }
+    if (inList) out += "</ul>";
+    return out;
+  }
+
+  async function call(path, opts = {}) {
+    const res = await fetch(api + path, { headers: { "Content-Type": "application/json" }, ...opts });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  }
+
+  function setOnline(ok) {
+    $("apiDot").className = "dot " + (ok ? "ok" : "bad");
+    $("offline").hidden = ok;
+    $("offlineAt").textContent = api;
+    $("go").disabled = !ok;
+  }
+
+  // ---------- setup ----------
+  function buildAnalysts(list, selected) {
+    $("analysts").innerHTML = list.map((a) => `
+      <label class="chip"><input type="checkbox" value="${a.key}" ${selected.includes(a.key) ? "checked" : ""}>
+        <span><b>${esc(a.label)}</b><small>${esc(a.hint)}</small></span></label>`).join("");
+  }
+
+  function fillProviders(cfg) {
+    $("provider").innerHTML = cfg.providers.map((p) =>
+      `<option value="${p.key}">${esc(p.label)}${p.has_key ? "" : " (no key set)"}</option>`).join("");
+    $("provider").value = cfg.defaults.provider;
+    syncModels();
+  }
+
+  function syncModels() {
+    const p = config.providers.find((x) => x.key === $("provider").value);
+    $("models").innerHTML = p.models.map((m) => `<option value="${esc(m)}">`).join("");
+    if (!$("quick").value || $("quick").dataset.auto) { $("quick").value = p.models[1] || p.models[0] || config.defaults.quick_model; $("quick").dataset.auto = "1"; }
+    if (!$("deep").value || $("deep").dataset.auto) { $("deep").value = p.models[0] || config.defaults.deep_model; $("deep").dataset.auto = "1"; }
+    $("keyHint").textContent = p.has_key
+      ? (p.env ? `${p.env} is set.` : "No key needed for local models.")
+      : `Set ${p.env} in the environment or .env before running.`;
+    $("keyHint").style.color = p.has_key ? "" : "var(--sell)";
+  }
+
+  async function connect() {
+    api = $("apiBase").value.trim().replace(/\/+$/, "") || DEFAULT_API;
+    localStorage.setItem(LS_API, api);
+    try {
+      config = await call("/api/config");
+      setOnline(true);
+      $("date").max = config.today;
+      if (!$("date").value) $("date").value = config.today;
+      if (!$("analysts").children.length) buildAnalysts(config.analysts, ["market", "social", "news", "fundamentals"]);
+      if (!$("provider").options.length) fillProviders(config);
+      $("formErr").textContent = "";
+      loadHistory();
+    } catch (e) {
+      setOnline(false);
+    }
+  }
+
+  // ---------- run ----------
+  function readForm() {
+    return {
+      ticker: $("ticker").value,
+      date: $("date").value,
+      analysts: [...$("analysts").querySelectorAll("input:checked")].map((i) => i.value),
+      provider: $("provider").value,
+      quick_model: $("quick").value,
+      deep_model: $("deep").value,
+      debate_rounds: $("debate").value,
+      risk_rounds: $("risk").value,
+      save: $("save").checked,
+    };
+  }
+
+  async function startRun(e) {
+    e.preventDefault();
+    $("formErr").textContent = "";
+    try {
+      const { id } = await call("/api/runs", { method: "POST", body: JSON.stringify(readForm()) });
+      selectedRunId = id;
+      beginPolling(id);
+      loadHistory();
+    } catch (err) {
+      $("formErr").textContent = err.message;
+    }
+  }
+
+  function beginPolling(id) {
+    clearInterval(pollTimer);
+    $("empty").hidden = true;
+    $("runView").hidden = false;
+    const tick = async () => {
+      try {
+        const run = await call(`/api/runs/${id}`);
+        activeRun = run;
+        render(run);
+        if (run.state === "done" || run.state === "error") { clearInterval(pollTimer); loadHistory(); }
+      } catch (err) { $("formErr").textContent = err.message; clearInterval(pollTimer); }
+    };
+    tick();
+    pollTimer = setInterval(tick, 2000);
+  }
+
+  // ---------- rendering ----------
+  let openTab = null;
+
+  function render(run) {
+    const req = run.request;
+    const feed = run.events || [];
+    const doneLabels = feed.filter((e) => e.kind === "step").map((e) => e.text);
+    const running = run.state === "queued" || run.state === "running";
+
+    const doneFlags = stepStatus(req, doneLabels, run.state === "done");
+    const firstOpen = doneFlags.findIndex((d) => !d);
+    const steps = STEPS.map(([name], i) => {
+      const done = doneFlags[i];
+      const live = running && i === firstOpen;
+      return `<span class="step ${done ? "done" : live ? "live" : ""}">${done ? "✓ " : ""}${esc(name)}</span>`;
+    }).join("");
+
+    const rating = run.rating || (run.state === "error" ? "Error" : run.state === "done" ? "Review" : "…");
+    const ratingClass = ["Buy", "Overweight", "Hold", "Underweight", "Sell"].includes(run.rating) ? run.rating : "";
+    const head = `
+      <div class="card decision">
+        <div class="rating ${ratingClass}">${running ? "Running…" : esc(rating)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:18px;font-weight:600">${esc(req.ticker)} · ${esc(req.date)}</div>
+          <div class="meta">${esc(req.provider)} · quick ${esc(req.quick_model)} · deep ${esc(req.deep_model)} · ${req.analysts.length} analyst${req.analysts.length === 1 ? "" : "s"}</div>
+          ${run.state === "error" ? `<div class="err">${esc(run.error)}</div>` : ""}
+          ${run.saved_to ? `<div class="meta">Saved to ${esc(run.saved_to)}</div>` : ""}
+          <div class="steps">${steps}</div>
+          <div class="feed">${feed.slice(-40).map((e) => `<div class="${e.kind}">${esc(e.t)}  ${esc(e.text)}</div>`).join("") || "Waiting to start…"}</div>
+        </div>
+      </div>`;
+
+    const sections = run.sections || [];
+    const tabs = sections.flatMap((s) => s.files.map((f) => ({ heading: s.heading, ...f })));
+    if (!openTab || !tabs.find((t) => t.agent === openTab)) openTab = tabs.length ? tabs[tabs.length - 1].agent : null;
+    if (run.state === "done" && !run.decision) openTab = null;
+
+    const bodyView = !sections.length ? "" : `
+      <div class="card">
+        <div class="tabs">${tabs.map((t) => `<button class="tab ${t.agent === openTab ? "on" : ""}" data-agent="${esc(t.agent)}">${esc(t.agent)}</button>`).join("")}</div>
+        ${tabs.filter((t) => t.agent === openTab).map((t) => `
+          <div class="section-title">${esc(t.heading)}</div>
+          <div class="report"><h4>${esc(t.agent)}</h4><div class="body">${md(t.markdown)}</div></div>`).join("")}
+      </div>`;
+
+    $("runView").innerHTML = head + bodyView;
+    $("runView").querySelectorAll(".tab").forEach((b) => b.onclick = () => { openTab = b.dataset.agent; render(activeRun); });
+  }
+
+  // Which progress steps are done, from the step messages the server logged.
+  // The risk debate has no message of its own; it is done once the portfolio
+  // manager, which reads the debate, has finished.
+  function stepStatus(req, labels, runDone) {
+    const analystsDone = labels.filter((t) => t.endsWith("analyst finished")).length >= req.analysts.length;
+    const research = labels.some((t) => t.startsWith("Research manager"));
+    const trader = labels.some((t) => t.startsWith("Trader"));
+    const pm = labels.some((t) => t.startsWith("Portfolio manager"));
+    return [analystsDone, research, trader, pm, pm].map((d) => runDone || d);
+  }
+
+  async function loadHistory() {
+    if (!config) return;
+    try {
+      const runs = await call("/api/runs");
+      $("history").innerHTML = runs.length ? runs.map((r) => `
+        <div class="hitem" data-id="${r.id}">
+          <span><strong>${esc(r.ticker)}</strong> <span class="meta">${esc(r.date)}</span></span>
+          <span class="meta">${esc(r.state === "done" ? (r.rating || "done") : r.state)}</span>
+        </div>`).join("") : `<div class="meta">No runs yet.</div>`;
+      $("history").querySelectorAll(".hitem").forEach((el) => el.onclick = () => {
+        selectedRunId = el.dataset.id; openTab = null; beginPolling(el.dataset.id);
+      });
+    } catch (_) { /* offline state is handled by connect() */ }
+  }
+
+  // ---------- wire up ----------
+  $("apiBase").value = api;
+  $("apiSave").onclick = connect;
+  $("provider").onchange = () => { $("quick").dataset.auto = "1"; $("deep").dataset.auto = "1"; syncModels(); };
+  $("quick").oninput = () => delete $("quick").dataset.auto;
+  $("deep").oninput = () => delete $("deep").dataset.auto;
+  $("form").onsubmit = startRun;
+  $("date").value = new Date().toISOString().slice(0, 10);
+  connect();
+  setInterval(() => { if (!config) connect(); }, 5000);
+})();
+</script>
+</body>
+</html>
